@@ -13,6 +13,11 @@ namespace LogicAppAdvancedTool
             MemoryStream memoryStream = new MemoryStream(compressedContent);
 
             int algorithm = memoryStream.ReadByte() & 7;
+
+            // Display the selected algorithm and Base64 of compressedContent
+            Console.WriteLine($"Selected algorithm: {algorithm}");
+            Console.WriteLine($"Base64 of compressedContent: {Convert.ToBase64String(compressedContent)}");
+
             switch (algorithm)
             {
                 case 6:
