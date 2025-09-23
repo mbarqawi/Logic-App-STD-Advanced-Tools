@@ -39,18 +39,20 @@
 name: .NET Core Console Application
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+      release_notes:
+        description: 'Release notes'
+        required: false
+        default: 'New release'
 
 jobs:
 
-  build:
-
-    strategy:
-      matrix:
-        configuration: [Debug, Release]
+  build-and-release:
 
     runs-on: windows-latest
 
@@ -81,12 +83,39 @@ jobs:
     # Publish the application as a single file executable
     - name: Publish application
       run: dotnet publish $env:Project_Path -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o ./publish
-      env:
-        Configuration: ${{ matrix.configuration }}
 
-    # Upload the published executable
+    # Create a zip file with the published executable
+    - name: Create release archive
+      run: |
+        Compress-Archive -Path ./publish/* -DestinationPath ./LogicAppAdvancedTool-${{ github.event.inputs.release_version }}-win-x64.zip
+
+    # Create GitHub Release
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.event.inputs.release_version }}
+        release_name: Release ${{ github.event.inputs.release_version }}
+        body: ${{ github.event.inputs.release_notes }}
+        draft: false
+        prerelease: false
+
+    # Upload Release Asset
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./LogicAppAdvancedTool-${{ github.event.inputs.release_version }}-win-x64.zip
+        asset_name: LogicAppAdvancedTool-${{ github.event.inputs.release_version }}-win-x64.zip
+        asset_content_type: application/zip
+
+    # Upload the published executable as build artifact (optional)
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: Published-Executable-${{ matrix.configuration }}
+        name: Published-Executable-${{ github.event.inputs.release_version }}
         path: ./publish
